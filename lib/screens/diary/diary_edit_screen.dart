@@ -7,6 +7,7 @@ import '../../db/database.dart';
 import '../../providers/diary_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../services/sync_service.dart';
+import '../../utils/media_utils.dart';
 import '../../widgets/app_media_thumbnail.dart';
 
 final _dateFormat = DateFormat('yyyy年M月d日', 'zh_CN');
@@ -72,8 +73,9 @@ class _DiaryEditScreenState extends ConsumerState<DiaryEditScreen> {
   Future<void> _pickImages() async {
     final picker = ImagePicker();
     final items = await picker.pickMultipleMedia();
-    if (items.isNotEmpty) {
-      setState(() => _newPhotos.addAll(items));
+    final media = items.where((f) => isMediaFile(f.path, f.mimeType)).toList();
+    if (media.isNotEmpty) {
+      setState(() => _newPhotos.addAll(media));
     }
   }
 

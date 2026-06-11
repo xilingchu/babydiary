@@ -10,6 +10,18 @@ bool isVideo(String path) {
       lower.endsWith('.m4v') || lower.endsWith('.3gp');
 }
 
+bool isMediaFile(String path, String? mimeType) {
+  if (mimeType != null) {
+    return mimeType.startsWith('image/') || mimeType.startsWith('video/');
+  }
+  if (isVideo(path)) return true;
+  final lower = path.toLowerCase().split('?').first;
+  return lower.endsWith('.jpg') || lower.endsWith('.jpeg') ||
+      lower.endsWith('.png') || lower.endsWith('.gif') ||
+      lower.endsWith('.webp') || lower.endsWith('.heic') ||
+      lower.endsWith('.heif');
+}
+
 // video_compress only works on iOS/Android
 bool get _canCompress => !kIsWeb && (Platform.isIOS || Platform.isAndroid);
 

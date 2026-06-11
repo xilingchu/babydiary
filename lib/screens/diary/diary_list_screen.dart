@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import '../../db/database.dart';
 import '../../providers/diary_provider.dart';
 import '../../providers/settings_provider.dart';
-import '../../widgets/app_image.dart';
+import '../../widgets/app_media_thumbnail.dart';
 
 final _dateFormat = DateFormat('yyyy年M月d日', 'zh_CN');
 
@@ -233,7 +233,7 @@ class _DiaryCard extends ConsumerWidget {
                           padding: const EdgeInsets.only(right: 6),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: AppImage(
+                            child: AppMediaThumbnail(
                               photoList[i].localPath,
                               width: 70,
                               height: 70,

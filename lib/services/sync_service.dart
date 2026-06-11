@@ -228,6 +228,7 @@ class SyncService extends StateNotifier<SyncState> {
     try {
       await _syncBabyProfile();
       await _syncDiaries();
+      await _syncOrphanedPhotos();
       await _syncMilestones();
       await _pullRemoteMilestones();
       await _syncComments();
@@ -346,6 +347,17 @@ class SyncService extends StateNotifier<SyncState> {
           syncedAt: Value(DateTime.now()),
         ));
       } catch (_) {}
+    }
+  }
+
+  // Retry photos that were left unsynced because their diary was already synced
+  // when the photo upload previously failed.
+  Future<void> _syncOrphanedPhotos() async {
+    final unsyncedPhotos = await _db.getUnsyncedPhotos();
+    for (final photo in unsyncedPhotos) {
+      final diary = await _db.getDiaryById(photo.diaryId);
+      if (diary == null || diary.remoteId == null) continue;
+      await _syncPhotosForDiary(photo.diaryId);
     }
   }
 

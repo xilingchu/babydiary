@@ -7,7 +7,7 @@ import '../../db/database.dart';
 import '../../providers/diary_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../services/sync_service.dart';
-import '../../widgets/app_image.dart';
+import '../../widgets/app_media_thumbnail.dart';
 
 final _dateFormat = DateFormat('yyyy年M月d日', 'zh_CN');
 
@@ -71,9 +71,9 @@ class _DiaryEditScreenState extends ConsumerState<DiaryEditScreen> {
 
   Future<void> _pickImages() async {
     final picker = ImagePicker();
-    final images = await picker.pickMultiImage();
-    if (images.isNotEmpty) {
-      setState(() => _newPhotos.addAll(images));
+    final items = await picker.pickMultipleMedia();
+    if (items.isNotEmpty) {
+      setState(() => _newPhotos.addAll(items));
     }
   }
 
@@ -217,7 +217,7 @@ class _DiaryEditScreenState extends ConsumerState<DiaryEditScreen> {
                 TextButton.icon(
                   onPressed: _pickImages,
                   icon: const Icon(Icons.add_photo_alternate_outlined),
-                  label: const Text('添加照片'),
+                  label: const Text('添加照片/视频'),
                 ),
               ],
             ),
@@ -266,7 +266,7 @@ class _PhotoGrid extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: AppImage(e.value, width: 90, height: 90),
+              child: AppMediaThumbnail(e.value, width: 90, height: 90),
             ),
             Positioned(
               top: 2,

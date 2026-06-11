@@ -2,10 +2,16 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'media_utils.dart';
 
 Future<http.MultipartFile?> photoToMultipart(String localPath, String fieldName) async {
   if (localPath.isEmpty || localPath.startsWith('http')) return null;
-  final file = File(localPath);
+
+  final uploadPath = isVideo(localPath)
+      ? await compressVideoForUpload(localPath)
+      : localPath;
+
+  final file = File(uploadPath);
   if (!file.existsSync()) return null;
   final bytes = await file.readAsBytes();
   return http.MultipartFile.fromBytes(fieldName, bytes, filename: p.basename(localPath));

@@ -1,11 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:video_player/video_player.dart';
 import '../../db/database.dart';
 import '../../providers/diary_provider.dart';
 import '../../services/sync_service.dart';
+import '../../utils/media_utils.dart';
 import '../../widgets/app_image.dart';
+import '../../widgets/app_media_thumbnail.dart';
 import '../../widgets/comment_section.dart';
 
 final _dateFormat = DateFormat('yyyy年M月d日 EEEE', 'zh_CN');
@@ -97,7 +101,7 @@ class DiaryDetailScreen extends ConsumerWidget {
                         const Divider(),
                         const SizedBox(height: 8),
                         Text(
-                          '照片',
+                          '照片 / 视频',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 10),
@@ -111,10 +115,10 @@ class DiaryDetailScreen extends ConsumerWidget {
                           ),
                           itemCount: photoList.length,
                           itemBuilder: (context, i) => GestureDetector(
-                            onTap: () => _viewPhoto(context, photoList, i),
+                            onTap: () => _viewMedia(context, photoList, i),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: AppImage(photoList[i].localPath),
+                              child: AppMediaThumbnail(photoList[i].localPath),
                             ),
                           ),
                         ),
@@ -134,9 +138,9 @@ class DiaryDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _viewPhoto(BuildContext context, List<DiaryPhoto> photos, int index) {
+  void _viewMedia(BuildContext context, List<DiaryPhoto> photos, int index) {
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => _PhotoViewScreen(photos: photos, initialIndex: index),
+      builder: (_) => _MediaViewScreen(photos: photos, initialIndex: index),
     ));
   }
 
@@ -163,16 +167,16 @@ class DiaryDetailScreen extends ConsumerWidget {
   }
 }
 
-class _PhotoViewScreen extends StatefulWidget {
+class _MediaViewScreen extends StatefulWidget {
   final List<DiaryPhoto> photos;
   final int initialIndex;
-  const _PhotoViewScreen({required this.photos, required this.initialIndex});
+  const _MediaViewScreen({required this.photos, required this.initialIndex});
 
   @override
-  State<_PhotoViewScreen> createState() => _PhotoViewScreenState();
+  State<_MediaViewScreen> createState() => _MediaViewScreenState();
 }
 
-class _PhotoViewScreenState extends State<_PhotoViewScreen> {
+class _MediaViewScreenState extends State<_MediaViewScreen> {
   late int _currentIndex;
   late PageController _controller;
 
@@ -202,11 +206,67 @@ class _PhotoViewScreenState extends State<_PhotoViewScreen> {
         controller: _controller,
         onPageChanged: (i) => setState(() => _currentIndex = i),
         itemCount: widget.photos.length,
-        itemBuilder: (context, i) => InteractiveViewer(
-          child: Center(
-            child: AppImage(widget.photos[i].localPath, fit: BoxFit.contain),
-          ),
-        ),
+        itemBuilder: (context, i) {
+          final path = widget.photos[i].localPath;
+          if (isVideo(path)) {
+            return _InlineVideoPlayer(path: path);
+          }
+          return InteractiveViewer(
+            child: Center(
+              child: AppImage(path, fit: BoxFit.contain),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _InlineVideoPlayer extends StatefulWidget {
+  final String path;
+  const _InlineVideoPlayer({required this.path});
+
+  @override
+  State<_InlineVideoPlayer> createState() => _InlineVideoPlayerState();
+}
+
+class _InlineVideoPlayerState extends State<_InlineVideoPlayer> {
+  late VideoPlayerController _ctrl;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = widget.path.startsWith('http')
+        ? VideoPlayerController.networkUrl(Uri.parse(widget.path))
+        : VideoPlayerController.file(File(widget.path));
+    _ctrl.initialize().then((_) {
+      if (mounted) {
+        setState(() => _ready = true);
+        _ctrl.play();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => setState(() {
+        _ctrl.value.isPlaying ? _ctrl.pause() : _ctrl.play();
+      }),
+      child: Center(
+        child: _ready
+            ? AspectRatio(
+                aspectRatio: _ctrl.value.aspectRatio,
+                child: VideoPlayer(_ctrl),
+              )
+            : const CircularProgressIndicator(color: Colors.white),
       ),
     );
   }

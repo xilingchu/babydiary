@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../db/database.dart';
+import '../../providers/comment_provider.dart';
 import '../../providers/diary_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../widgets/app_media_thumbnail.dart';
@@ -146,6 +147,7 @@ class _DiaryCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final photos = ref.watch(diaryPhotosProvider(diary.id));
+    final comments = ref.watch(commentsProvider(diary.id));
     final settings = ref.watch(settingsProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final authorColor = diary.author.isNotEmpty ? settings.colorFor(diary.author) : null;
@@ -241,6 +243,50 @@ class _DiaryCard extends ConsumerWidget {
                           ),
                         ),
                       ),
+                    ),
+                  );
+                },
+                orElse: () => const SizedBox.shrink(),
+              ),
+              comments.maybeWhen(
+                data: (commentList) {
+                  if (commentList.isEmpty) return const SizedBox.shrink();
+                  final preview = commentList.take(3).toList();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ...preview.map((c) => Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: RichText(
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            text: TextSpan(
+                              children: [
+                                if (c.author.isNotEmpty)
+                                  TextSpan(
+                                    text: '${c.author}：',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: settings.colorFor(c.author),
+                                    ),
+                                  ),
+                                TextSpan(
+                                  text: c.content,
+                                  style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )),
+                        if (commentList.length > 3)
+                          Text(
+                            '……',
+                            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+                          ),
+                      ],
                     ),
                   );
                 },

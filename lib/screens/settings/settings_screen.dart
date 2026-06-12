@@ -50,7 +50,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    // 同步地址在 build 里通过 listen 填入
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final s = ref.read(settingsProvider);
+      if (s.loaded && !_profileLoaded) _applySettings(s);
+    });
   }
 
   void _applySettings(AppSettings s) {
@@ -83,6 +87,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       babyWeight: double.tryParse(_weightCtrl.text),
     );
     setState(() => _profileDirty = false);
+    final sync = ref.read(syncServiceProvider.notifier);
+    if (ref.read(syncServiceProvider).status == SyncStatus.connected) sync.syncAll();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('保存成功')));
     }

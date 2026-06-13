@@ -6,6 +6,7 @@ import '../db/database.dart';
 import '../providers/settings_provider.dart';
 import 'package:drift/drift.dart';
 import '../utils/sync_io.dart';
+import 'notification_service.dart';
 
 const _kServerUrl = 'sync_server_url';
 
@@ -42,6 +43,10 @@ class SyncService extends StateNotifier<SyncState> {
   final AppDatabase _db;
   final SettingsNotifier _settings;
   PocketBase? _pb;
+
+  int _pendingDiaryCount = 0;
+  int _pendingMilestoneCount = 0;
+  String _pendingAuthor = '';
 
   SyncService(this._db, this._settings) : super(const SyncState()) {
     _autoConnect();
@@ -225,6 +230,9 @@ class SyncService extends StateNotifier<SyncState> {
   Future<void> syncAll() async {
     if (_pb == null) return;
     state = state.copyWith(status: SyncStatus.syncing);
+    _pendingDiaryCount = 0;
+    _pendingMilestoneCount = 0;
+    _pendingAuthor = '';
     try {
       await _syncBabyProfile();
       await _syncDiaries();
@@ -235,6 +243,11 @@ class SyncService extends StateNotifier<SyncState> {
       state = state.copyWith(
         status: SyncStatus.connected,
         lastSync: DateTime.now(),
+      );
+      await NotificationService.showNewContent(
+        author: _pendingAuthor,
+        diaryCount: _pendingDiaryCount,
+        milestoneCount: _pendingMilestoneCount,
       );
     } catch (e) {
       state = state.copyWith(
@@ -381,6 +394,12 @@ class SyncService extends StateNotifier<SyncState> {
         if (existing == null || existing.updatedAt.isBefore(remoteUpdated)) {
           final createdStr = record.get<String>('created_at', '');
           final remoteAuthor = record.get<String>('author', '');
+          if (existing == null &&
+              remoteAuthor.isNotEmpty &&
+              remoteAuthor != _settings.state.currentAuthor) {
+            _pendingDiaryCount++;
+            if (_pendingAuthor.isEmpty) _pendingAuthor = remoteAuthor;
+          }
           await _db.upsertDiary(DiaryEntriesCompanion(
             id: Value(localId),
             date: Value(DateTime.parse(record.get<String>('date'))),
@@ -455,6 +474,14 @@ class SyncService extends StateNotifier<SyncState> {
 
         if (existing != null && !existing.updatedAt.isBefore(remoteUpdated)) continue;
 
+        final remoteAuthor = record.get<String>('author', '');
+        if (existing == null &&
+            remoteAuthor.isNotEmpty &&
+            remoteAuthor != _settings.state.currentAuthor) {
+          _pendingMilestoneCount++;
+          if (_pendingAuthor.isEmpty) _pendingAuthor = remoteAuthor;
+        }
+
         // 下载里程碑照片
         String? localPhotoPath = existing?.localPhotoPath;
         final fileName = record.get<String>('photo', '');
@@ -463,7 +490,6 @@ class SyncService extends StateNotifier<SyncState> {
         }
 
         final createdStr = record.get<String>('created_at', '');
-        final remoteAuthor = record.get<String>('author', '');
         await _db.upsertMilestone(MilestonesCompanion(
           id: Value(localId),
           date: Value(DateTime.parse(record.get<String>('date'))),

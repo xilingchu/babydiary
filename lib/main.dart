@@ -7,8 +7,11 @@ import 'screens/diary/diary_edit_screen.dart';
 import 'screens/diary/diary_detail_screen.dart';
 import 'screens/milestone/milestone_edit_screen.dart';
 import 'screens/settings/settings_screen.dart';
+import 'services/notification_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.init();
   runApp(const ProviderScope(child: BabyDiaryApp()));
 }
 

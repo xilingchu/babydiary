@@ -7,11 +7,24 @@ import 'screens/diary/diary_edit_screen.dart';
 import 'screens/diary/diary_detail_screen.dart';
 import 'screens/milestone/milestone_edit_screen.dart';
 import 'screens/settings/settings_screen.dart';
+import 'package:flutter/foundation.dart';
+import 'package:workmanager/workmanager.dart';
 import 'services/notification_service.dart';
+import 'services/background_sync_task.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService.init();
+  if (!kIsWeb) {
+    await Workmanager().initialize(callbackDispatcher);
+    await Workmanager().registerPeriodicTask(
+      kBgTaskName,
+      kBgTaskName,
+      frequency: const Duration(minutes: 15),
+      constraints: Constraints(networkType: NetworkType.connected),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+    );
+  }
   runApp(const ProviderScope(child: BabyDiaryApp()));
 }
 

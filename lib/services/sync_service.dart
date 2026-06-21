@@ -240,6 +240,8 @@ class SyncService extends StateNotifier<SyncState> {
       await _syncMilestones();
       await _pullRemoteMilestones();
       await _syncComments();
+      await _cleanupBase64Photos();
+      await _cleanupBase64Milestones();
       state = state.copyWith(
         status: SyncStatus.connected,
         lastSync: DateTime.now(),
@@ -349,10 +351,14 @@ class SyncService extends StateNotifier<SyncState> {
         }
 
         final fileName = record.get<String>('photo', '');
+        // Replace base64 data URL with PocketBase URL to free IndexedDB storage on web
+        final savedPath = fileName.isNotEmpty
+            ? _pb!.files.getURL(record, fileName).toString()
+            : photo.localPath;
         await _db.upsertPhoto(DiaryPhotosCompanion(
           id: Value(photo.id),
           diaryId: Value(photo.diaryId),
-          localPath: Value(photo.localPath),
+          localPath: Value(savedPath),
           remoteId: Value(record.id),
           remoteFileName: Value(fileName.isNotEmpty ? fileName : null),
           caption: Value(photo.caption),
@@ -361,6 +367,59 @@ class SyncService extends StateNotifier<SyncState> {
         ));
       } catch (_) {}
     }
+  }
+
+  // Replace base64 data URLs in IndexedDB with PocketBase URLs for already-synced photos.
+  // Needed to free storage for photos synced before this fix was deployed.
+  Future<void> _cleanupBase64Photos() async {
+    final pb = _pb!;
+    try {
+      final all = await _db.getAllPhotos();
+      for (final photo in all) {
+        if (!photo.localPath.startsWith('data:')) continue;
+        if (photo.remoteId == null || photo.remoteFileName == null) continue;
+        final record = RecordModel({'id': photo.remoteId!, 'collectionName': 'diary_photos'});
+        final url = pb.files.getURL(record, photo.remoteFileName!).toString();
+        await _db.upsertPhoto(DiaryPhotosCompanion(
+          id: Value(photo.id),
+          diaryId: Value(photo.diaryId),
+          localPath: Value(url),
+          remoteId: Value(photo.remoteId),
+          remoteFileName: Value(photo.remoteFileName),
+          caption: Value(photo.caption),
+          createdAt: Value(photo.createdAt),
+          syncedAt: Value(photo.syncedAt),
+        ));
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _cleanupBase64Milestones() async {
+    final pb = _pb!;
+    try {
+      final all = await _db.getAllMilestones();
+      for (final m in all) {
+        final path = m.localPhotoPath;
+        if (path == null || !path.startsWith('data:')) continue;
+        if (m.remoteId == null || m.remoteFileName == null) continue;
+        final record = RecordModel({'id': m.remoteId!, 'collectionName': 'milestones'});
+        final url = pb.files.getURL(record, m.remoteFileName!).toString();
+        await _db.upsertMilestone(MilestonesCompanion(
+          id: Value(m.id),
+          date: Value(m.date),
+          title: Value(m.title),
+          description: Value(m.description),
+          category: Value(m.category),
+          author: Value(m.author),
+          localPhotoPath: Value(url),
+          remoteId: Value(m.remoteId),
+          remoteFileName: Value(m.remoteFileName),
+          createdAt: Value(m.createdAt),
+          updatedAt: Value(m.updatedAt),
+          syncedAt: Value(m.syncedAt),
+        ));
+      }
+    } catch (_) {}
   }
 
   // Retry photos that were left unsynced because their diary was already synced
@@ -565,13 +624,17 @@ class SyncService extends StateNotifier<SyncState> {
         }
 
         final fileName = record.get<String>('photo', '');
+        // Replace base64 data URL with PocketBase URL to free IndexedDB storage on web
+        final savedPhotoPath = (fileName.isNotEmpty && milestone.localPhotoPath != null)
+            ? _pb!.files.getURL(record, fileName).toString()
+            : milestone.localPhotoPath;
         await _db.upsertMilestone(MilestonesCompanion(
           id: Value(milestone.id),
           date: Value(milestone.date),
           title: Value(milestone.title),
           description: Value(milestone.description),
           category: Value(milestone.category),
-          localPhotoPath: Value(milestone.localPhotoPath),
+          localPhotoPath: Value(savedPhotoPath),
           remoteId: Value(record.id),
           remoteFileName: Value(fileName.isNotEmpty ? fileName : null),
           createdAt: Value(milestone.createdAt),

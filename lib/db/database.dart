@@ -191,6 +191,8 @@ class AppDatabase extends _$AppDatabase {
   Future<List<DiaryPhoto>> getUnsyncedPhotos() =>
       (select(diaryPhotos)..where((t) => t.syncedAt.isNull())).get();
 
+  Future<List<DiaryPhoto>> getAllPhotos() => select(diaryPhotos).get();
+
   Future<List<Milestone>> getUnsyncedMilestones() =>
       (select(milestones)..where((t) => t.syncedAt.isNull())).get();
 
